@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>CNN on MNIST</title>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Space+Grotesk:wght@300;500;700&display=swap" rel="stylesheet"/>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: #0a0a0f; color: #e2e8f0; font-family: 'Space Grotesk', sans-serif; }
+    .app { min-height: 100vh; background: #0a0a0f; padding: 24px; }
+    .hero { text-align: center; margin-bottom: 40px; }
+    .hero h1 {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 2.2rem; font-weight: 700;
+      background: linear-gradient(135deg, #60efff, #0061ff, #a855f7);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      letter-spacing: -1px;
+    }
+    .hero p { color: #64748b; margin-top: 8px; font-size: 0.95rem; }
+    .tabs { display: flex; gap: 8px; justify-content: center; margin-bottom: 32px; flex-wrap: wrap; }
+    .tab {
+      padding: 8px 20px; border-radius: 8px; border: 1px solid #1e293b;
+      background: #0f172a; color: #64748b; cursor: pointer;
+      font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; transition: all 0.2s;
+    }
+    .tab.active { background: #1e3a5f; border-color: #0061ff; color: #60efff; }
+    .card { background: #0f172a; border: 1px solid #1e293b; border-radius: 16px; padding: 28px; margin-bottom: 20px; }
+    .card h2 { font-family: 'JetBrains Mono', monospace; font-size: 1.1rem; color: #60efff; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
+    .formula { background: #020617; border: 1px solid #1e293b; border-radius: 8px; padding: 16px; font-family: 'JetBrains Mono', monospace; font-size: 0.85rem; color: #a855f7; margin: 12px 0; line-height: 1.8; }
+    .highlight { color: #60efff; }
+    .green { color: #4ade80; }
+    .yellow { color: #fbbf24; }
+    .red { color: #f87171; }
+    .purple { color: #c084fc; }
+    .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+    @media (max-width: 700px) { .grid2 { grid-template-columns: 1fr; } }
+    .layer-row { display: flex; align-items: flex-start; gap: 16px; padding: 16px; border-radius: 12px; border: 1px solid #1e293b; margin-bottom: 12px; background: #020617; transition: border-color 0.2s; }
+    .layer-row:hover { border-color: #334155; }
+    .layer-badge { padding: 4px 12px; border-radius: 6px; font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; font-weight: 700; white-space: nowrap; flex-shrink: 0; }
+    .badge-conv { background: #1e3a5f; color: #60efff; border: 1px solid #0061ff; }
+    .badge-pool { background: #1a2f1a; color: #4ade80; border: 1px solid #16a34a; }
+    .badge-fc   { background: #2d1f47; color: #c084fc; border: 1px solid #7c3aed; }
+    .badge-flat { background: #2d2008; color: #fbbf24; border: 1px solid #b45309; }
+    .layer-info { flex: 1; font-size: 0.85rem; }
+    .layer-info .title { font-weight: 600; color: #e2e8f0; margin-bottom: 4px; }
+    .layer-info .detail { color: #64748b; font-family: 'JetBrains Mono', monospace; font-size: 0.78rem; line-height: 1.6; }
+    .layer-info .params { color: #fbbf24; font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; margin-top: 4px; }
+    .total-box { background: linear-gradient(135deg, #1e3a5f, #2d1f47); border: 1px solid #0061ff; border-radius: 12px; padding: 20px; text-align: center; }
+    .total-box .num { font-family: 'JetBrains Mono', monospace; font-size: 2rem; font-weight: 700; color: #60efff; }
+    .total-box .label { color: #64748b; font-size: 0.85rem; margin-top: 4px; }
+    .calc-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-bottom: 20px; }
+    .input-group label { display: block; font-size: 0.78rem; color: #64748b; font-family: 'JetBrains Mono', monospace; margin-bottom: 6px; }
+    .input-group input, .input-group select { width: 100%; background: #020617; border: 1px solid #1e293b; border-radius: 8px; color: #e2e8f0; padding: 8px 12px; font-family: 'JetBrains Mono', monospace; font-size: 0.85rem; outline: none; transition: border-color 0.2s; }
+    .input-group input:focus, .input-group select:focus { border-color: #0061ff; }
+    .result-box { background: #020617; border: 1px solid #1e293b; border-radius: 12px; padding: 20px; }
+    .result-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid #0f172a; font-size: 0.85rem; }
+    .result-row:last-child { border-bottom: none; }
+    .result-row .rkey { color: #64748b; font-family: 'JetBrains Mono', monospace; }
+    .result-row .rval { font-family: 'JetBrains Mono', monospace; font-weight: 700; }
+    .arch-viz { display: flex; align-items: center; gap: 0; overflow-x: auto; padding: 20px 0; }
+    .arch-block { display: flex; flex-direction: column; align-items: center; gap: 6px; flex-shrink: 0; }
+    .arch-box { border-radius: 8px; display: flex; align-items: center; justify-content: center; font-family: 'JetBrains Mono', monospace; font-size: 0.65rem; font-weight: 700; text-align: center; padding: 4px; cursor: pointer; transition: transform 0.2s, box-shadow 0.2s; }
+    .arch-box:hover { transform: scale(1.1); box-shadow: 0 0 20px rgba(96,239,255,0.3); }
+    .arch-label { font-size: 0.65rem; color: #64748b; font-family: 'JetBrains Mono', monospace; text-align: center; max-width: 80px; }
+    .arch-arrow { color: #334155; font-size: 1.2rem; margin: 0 4px; flex-shrink: 0; margin-top: -20px; }
+    .info-panel { background: #020617; border: 1px solid #0061ff; border-radius: 12px; padding: 16px; margin-top: 16px; font-family: 'JetBrains Mono', monospace; font-size: 0.82rem; line-height: 1.8; }
+    .note-box { background: #1a1a08; border: 1px solid #b45309; border-radius: 8px; padding: 12px 16px; font-size: 0.83rem; color: #fbbf24; margin-top: 12px; font-family: 'JetBrains Mono', monospace; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script>
+    const { useState } = React;
+    const e = React.createElement;
+
+    const NETWORK = [
+      { type:"conv", name:"Conv1", detail:"Input: 1×28×28 | Filters: 6 | K: 5×5 | Stride: 1 | Pad: 0", outputSize:"6×24×24", paramsCalc:"(5×5×1 + 1) × 6 = 156", params:156, color:"#60efff", bg:"#1e3a5f" },
+      { type:"pool", name:"Pool1", detail:"Input: 6×24×24 | K: 2×2 | Stride: 2 | MaxPool", outputSize:"6×12×12", paramsCalc:"0 (no learnable params)", params:0, color:"#4ade80", bg:"#1a2f1a" },
+      { type:"conv", name:"Conv2", detail:"Input: 6×12×12 | Filters: 16 | K: 5×5 | Stride: 1 | Pad: 0", outputSize:"16×8×8", paramsCalc:"(5×5×6 + 1) × 16 = 2416", params:2416, color:"#60efff", bg:"#1e3a5f" },
+      { type:"pool", name:"Pool2", detail:"Input: 16×8×8 | K: 2×2 | Stride: 2 | MaxPool", outputSize:"16×4×4", paramsCalc:"0 (no learnable params)", params:0, color:"#4ade80", bg:"#1a2f1a" },
+      { type:"flat", name:"Flatten", detail:"Input: 16×4×4 = 256 values", outputSize:"256", paramsCalc:"0", params:0, color:"#fbbf24", bg:"#2d2008" },
+      { type:"fc", name:"FC1", detail:"Input: 256 | Output: 120", outputSize:"120", paramsCalc:"(256 + 1) × 120 = 30840", params:30840, color:"#c084fc", bg:"#2d1f47" },
+      { type:"fc", name:"FC2", detail:"Input: 120 | Output: 84", outputSize:"84", paramsCalc:"(120 + 1) × 84 = 10164", params:10164, color:"#c084fc", bg:"#2d1f47" },
+      { type:"fc", name:"Output", detail:"Input: 84 | Output: 10 (digits 0–9)", outputSize:"10", paramsCalc:"(84 + 1) × 10 = 850", params:850, color:"#f87171", bg:"#2d1010" },
+    ];
+
+    const TOTAL = NETWORK.reduce((s,l)=>s+l.params,0);
+
+    function calcConvOut(W,K,P,S){ return Math.floor((W-K+2*P)/S)+1; }
+    function calcConvParams(K,Cin,Cout,bias){ return (K*K*Cin+(bias?1:0))*Cout; }
+
+    function App() {
+      const [tab, setTab] = useState("arch");
+      const [selected, setSelected] = useState(null);
+      const [calc, setCalc] = useState({
+        W:28, K:5, P:0, S:1, C_in:1, C_out:6, bias:true,
+        pool_W:24, pool_K:2, pool_S:2,
+        fc_in:256, fc_out:120, fc_bias:true
+      });
+
+      const convOut = calcConvOut(+calc.W,+calc.K,+calc.P,+calc.S);
+      const convParams = calcConvParams(+calc.K,+calc.C_in,+calc.C_out,calc.bias);
+      const poolOut = calcConvOut(+calc.pool_W,+calc.pool_K,0,+calc.pool_S);
+      const fcParams = (+calc.fc_in+(calc.fc_bias?1:0))* +calc.fc_out;
+      const isFrac = ((+calc.W - +calc.K + 2* +calc.P) % +calc.S) !== 0;
+
+      const set = (k,v) => setCalc(c=>({...c,[k]:v}));
+
+      // ── TAB: ARCH ──
+      const tabArch = e('div',null,
+        e('div',{className:'card'},
+          e('h2',null,'🏗 LeNet-like CNN — Architecture Overview'),
+          e('div',{style:{overflowX:'auto'}},
+            e('div',{className:'arch-viz'},
+              e('div',{className:'arch-block',onClick:()=>setSelected('input')},
+                e('div',{className:'arch-box',style:{width:50,height:70,background:'#1a1a2e',border:'1px solid #334155',color:'#64748b'}},'28×28'),
+                e('div',{className:'arch-label'},'Input MNIST')
+              ),
+              ...NETWORK.map((layer,i)=>
+                e('div',{key:i,style:{display:'flex',alignItems:'center'}},
+                  e('div',{className:'arch-arrow'},'→'),
+                  e('div',{className:'arch-block',onClick:()=>setSelected(i)},
+                    e('div',{className:'arch-box',style:{
+                      width: layer.type==='flat'?20:layer.type==='fc'?30:60,
+                      height: layer.type==='flat'?70:layer.type==='pool'?50:layer.type==='fc'?70:65,
+                      background:layer.bg, border:`1px solid ${layer.color}`, color:layer.color
+                    }},layer.name),
+                    e('div',{className:'arch-label'},layer.outputSize)
+                  )
+                )
+              )
+            )
+          ),
+          selected !== null && selected !== 'input' && e('div',{className:'info-panel'},
+            e('span',{className:'highlight'},'['+NETWORK[selected].name+']'), e('br'),
+            e('span',{className:'yellow'},'Detail: '), NETWORK[selected].detail, e('br'),
+            e('span',{className:'yellow'},'Output: '), e('span',{className:'green'},NETWORK[selected].outputSize), e('br'),
+            e('span',{className:'yellow'},'Params: '), e('span',{className:'purple'},NETWORK[selected].paramsCalc), e('br'),
+            e('span',{className:'yellow'},'Count:  '), e('span',{className:'red'},NETWORK[selected].params.toLocaleString())
+          ),
+          selected === 'input' && e('div',{className:'info-panel'},
+            e('span',{className:'highlight'},'[Input]'), ' MNIST grayscale image — 28×28 pixels, 1 channel', e('br'),
+            'Each pixel value ∈ [0, 255], normalized to [0, 1]'
+          )
+        ),
+        e('div',{className:'grid2'},
+          e('div',{className:'card'},
+            e('div',{className:'total-box'},
+              e('div',{className:'num'},TOTAL.toLocaleString()),
+              e('div',{className:'label'},'Total Trainable Parameters')
+            )
+          ),
+          e('div',{className:'card'},
+            e('h2',null,'📊 Param Breakdown'),
+            ...NETWORK.filter(l=>l.params>0).map((l,i)=>
+              e('div',{key:i,className:'result-row'},
+                e('span',{className:'rkey'},l.name),
+                e('span',{className:'rval',style:{color:l.color}},l.params.toLocaleString())
+              )
+            )
+          )
+        )
+      );
+
+      // ── TAB: LAYERS ──
+      const tabLayers = e('div',{className:'card'},
+        e('h2',null,'📋 Every Layer Explained'),
+        ...NETWORK.map((layer,i)=>
+          e('div',{key:i,className:'layer-row'},
+            e('span',{className:`layer-badge badge-${layer.type}`},layer.type.toUpperCase()),
+            e('div',{className:'layer-info'},
+              e('div',{className:'title'},layer.name),
+              e('div',{className:'detail'},layer.detail),
+              e('div',{className:'detail'},'Output size: ',e('span',{className:'green'},layer.outputSize)),
+              e('div',{className:'params'},'Params = ',layer.paramsCalc,' = ',e('span',{style:{color:'#f87171'}},layer.params.toLocaleString()))
+            )
+          )
+        ),
+        e('div',{className:'note-box'},'⚠ Pooling layers have ZERO parameters — they just compute max or average, no weights to learn.')
+      );
+
+      // ── TAB: FORMULAS ──
+      const tabFormulas = e('div',null,
+        e('div',{className:'card'},
+          e('h2',null,'📐 Conv Output Size'),
+          e('div',{className:'formula'},
+            'Output = ⌊ (W − K + 2P) / S ⌋ + 1',e('br'),e('br'),
+            e('span',{className:'highlight'},'W'),' = input size (height or width)',e('br'),
+            e('span',{className:'highlight'},'K'),' = kernel/filter size',e('br'),
+            e('span',{className:'highlight'},'P'),' = padding',e('br'),
+            e('span',{className:'highlight'},'S'),' = stride',e('br'),
+            e('span',{className:'yellow'},'⌊ ⌋'),' = FLOOR (if fraction → round DOWN)'
+          ),
+          e('div',{className:'note-box'},'🔑 If the result has a decimal → always take the FLOOR (round down). Never round up. Example: (28 - 5 + 0) / 1 + 1 = 24 ✓'),
+          e('div',{className:'formula',style:{marginTop:16}},
+            'Example: Conv1 on MNIST',e('br'),
+            'W=28, K=5, P=0, S=1',e('br'),
+            'Output = ⌊(28 − 5 + 0) / 1⌋ + 1 = ',e('span',{className:'green'},'24')
+          )
+        ),
+        e('div',{className:'card'},
+          e('h2',null,'📐 Pooling Output Size'),
+          e('div',{className:'formula'},
+            'Output = ⌊ (W − K) / S ⌋ + 1',e('br'),e('br'),
+            '(Same formula as conv, padding=0 for standard pooling)',e('br'),e('br'),
+            'Example: Pool1 after Conv1',e('br'),
+            'W=24, K=2, S=2',e('br'),
+            'Output = ⌊(24 − 2) / 2⌋ + 1 = ',e('span',{className:'green'},'12')
+          )
+        ),
+        e('div',{className:'grid2'},
+          e('div',{className:'card'},
+            e('h2',null,'📐 Conv Parameters'),
+            e('div',{className:'formula'},
+              'Params = (K × K × C_in + bias) × C_out',e('br'),e('br'),
+              e('span',{className:'highlight'},'K×K'),'   = kernel spatial size',e('br'),
+              e('span',{className:'highlight'},'C_in'),'  = input channels',e('br'),
+              e('span',{className:'highlight'},'C_out'),' = number of filters',e('br'),
+              e('span',{className:'yellow'},'bias'),'  = 1 per filter (if used)',e('br'),e('br'),
+              e('span',{className:'green'},'With bias:'),'  (K²×C_in + 1) × C_out',e('br'),
+              e('span',{className:'red'},'Without bias:'),' (K²×C_in)     × C_out'
+            )
+          ),
+          e('div',{className:'card'},
+            e('h2',null,'📐 FC Parameters'),
+            e('div',{className:'formula'},
+              'Params = (N_in + bias) × N_out',e('br'),e('br'),
+              e('span',{className:'highlight'},'N_in'),'  = input neurons',e('br'),
+              e('span',{className:'highlight'},'N_out'),' = output neurons',e('br'),
+              e('span',{className:'yellow'},'bias'),'  = 1 per output neuron',e('br'),e('br'),
+              e('span',{className:'green'},'With bias:'),'  (N_in + 1) × N_out',e('br'),
+              e('span',{className:'red'},'Without bias:'),'  N_in × N_out',e('br'),e('br'),
+              'FC1: (256+1)×120 = ',e('span',{className:'green'},'30,840')
+            )
+          )
+        ),
+        e('div',{className:'card'},
+          e('h2',null,'🔑 Key Rules'),
+          e('div',{className:'formula'},
+            '1. ',e('span',{className:'yellow'},'Bias IS usually included'),' in parameter count unless stated otherwise',e('br'),
+            '   Each filter/neuron gets +1 bias → adds C_out or N_out params total',e('br'),e('br'),
+            '2. ',e('span',{className:'yellow'},'Output fraction → FLOOR always'),e('br'),
+            '   (W - K + 2P) / S = 2.5 → output = 2, not 3',e('br'),e('br'),
+            '3. ',e('span',{className:'yellow'},'Pooling has ZERO parameters'),' (max/avg — no weights)',e('br'),e('br'),
+            '4. ',e('span',{className:'yellow'},'Flatten has ZERO parameters'),' (just reshapes)',e('br'),e('br'),
+            '5. ',e('span',{className:'yellow'},'Same formula for H and W'),' when square inputs',e('br'),e('br'),
+            '6. ',e('span',{className:'yellow'},'Total params'),' = sum of all layer params (usually bias=True)'
+          )
+        )
+      );
+
+      // ── TAB: CALCULATOR ──
+      const convFields = [['W','Input Size (W)'],['K','Kernel Size (K)'],['P','Padding (P)'],['S','Stride (S)'],['C_in','Input Channels'],['C_out','Num Filters']];
+      const poolFields = [['pool_W','Input Size'],['pool_K','Pool Size (K)'],['pool_S','Stride (S)']];
+      const fcFields   = [['fc_in','Input neurons'],['fc_out','Output neurons']];
+
+      const tabCalc = e('div',null,
+        e('div',{className:'card'},
+          e('h2',null,'🧮 Conv Layer Calculator'),
+          e('div',{className:'calc-grid'},
+            ...convFields.map(([k,label])=>
+              e('div',{key:k,className:'input-group'},
+                e('label',null,label),
+                e('input',{type:'number',min:'1',value:calc[k],onChange:ev=>set(k,ev.target.value)})
+              )
+            ),
+            e('div',{className:'input-group'},
+              e('label',null,'Include Bias?'),
+              e('select',{value:calc.bias?'yes':'no',onChange:ev=>set('bias',ev.target.value==='yes')},
+                e('option',{value:'yes'},'Yes (+1 per filter)'),
+                e('option',{value:'no'},'No')
+              )
+            )
+          ),
+          e('div',{className:'result-box'},
+            e('div',{className:'result-row'},
+              e('span',{className:'rkey'},'Output spatial size'),
+              e('span',{className:'rval green'},`⌊(${calc.W} - ${calc.K} + 2×${calc.P}) / ${calc.S}⌋ + 1 = ${convOut}`)
+            ),
+            e('div',{className:'result-row'},
+              e('span',{className:'rkey'},'Output volume'),
+              e('span',{className:'rval highlight'},`${calc.C_out} × ${convOut} × ${convOut}`)
+            ),
+            e('div',{className:'result-row'},
+              e('span',{className:'rkey'},'Parameters'),
+              e('span',{className:'rval yellow'},`(${calc.K}×${calc.K}×${calc.C_in}${calc.bias?' + 1':''}) × ${calc.C_out} = ${convParams.toLocaleString()}`)
+            ),
+            isFrac && e('div',{className:'result-row'},
+              e('span',{className:'rkey',style:{color:'#f87171'}},'⚠ Fractional result'),
+              e('span',{className:'rval red'},'→ FLOOR applied')
+            )
+          )
+        ),
+        e('div',{className:'card'},
+          e('h2',null,'🧮 Pooling Layer Calculator'),
+          e('div',{className:'calc-grid'},
+            ...poolFields.map(([k,label])=>
+              e('div',{key:k,className:'input-group'},
+                e('label',null,label),
+                e('input',{type:'number',min:'1',value:calc[k],onChange:ev=>set(k,ev.target.value)})
+              )
+            )
+          ),
+          e('div',{className:'result-box'},
+            e('div',{className:'result-row'},
+              e('span',{className:'rkey'},'Output size'),
+              e('span',{className:'rval green'},`⌊(${calc.pool_W} - ${calc.pool_K}) / ${calc.pool_S}⌋ + 1 = ${poolOut}`)
+            ),
+            e('div',{className:'result-row'},
+              e('span',{className:'rkey'},'Parameters'),
+              e('span',{className:'rval purple'},'0 (no learnable params)')
+            )
+          )
+        ),
+        e('div',{className:'card'},
+          e('h2',null,'🧮 Fully Connected Calculator'),
+          e('div',{className:'calc-grid'},
+            ...fcFields.map(([k,label])=>
+              e('div',{key:k,className:'input-group'},
+                e('label',null,label),
+                e('input',{type:'number',min:'1',value:calc[k],onChange:ev=>set(k,ev.target.value)})
+              )
+            ),
+            e('div',{className:'input-group'},
+              e('label',null,'Include Bias?'),
+              e('select',{value:calc.fc_bias?'yes':'no',onChange:ev=>set('fc_bias',ev.target.value==='yes')},
+                e('option',{value:'yes'},'Yes'),
+                e('option',{value:'no'},'No')
+              )
+            )
+          ),
+          e('div',{className:'result-box'},
+            e('div',{className:'result-row'},
+              e('span',{className:'rkey'},'Parameters'),
+              e('span',{className:'rval yellow'},`(${calc.fc_in}${calc.fc_bias?' + 1':''}) × ${calc.fc_out} = ${fcParams.toLocaleString()}`)
+            )
+          )
+        )
+      );
+
+      const tabs = [{id:'arch',label:'🏗 Architecture'},{id:'layers',label:'📋 Layer Details'},{id:'formulas',label:'📐 Formulas'},{id:'calculator',label:'🧮 Calculator'}];
+
+      return e('div',{className:'app'},
+        e('div',{className:'hero'},
+          e('h1',null,'⚡ CNN on MNIST'),
+          e('p',null,'Parameters · Output Sizes · Bias · Architecture · Interactive Calculator')
+        ),
+        e('div',{className:'tabs'},
+          ...tabs.map(t=>
+            e('button',{key:t.id,className:`tab${tab===t.id?' active':''}`,onClick:()=>setTab(t.id)},t.label)
+          )
+        ),
+        tab==='arch' && tabArch,
+        tab==='layers' && tabLayers,
+        tab==='formulas' && tabFormulas,
+        tab==='calculator' && tabCalc
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(e(App));
+  </script>
+</body>
+</html>
